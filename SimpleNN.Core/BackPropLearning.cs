@@ -26,44 +26,70 @@ namespace SimpleNN.Core
             {
                 Layer = layer;
                 var length = layer.Outputs.Length;
-                Errors = new double[length];
                 Gradients = new double[length];
+                //
                 PrevDeltas = new double[length, layer.Inputs.Length];
                 PrevBiasDeltas = new double[length];
+                //
+                Deltas = new double[length, layer.Inputs.Length];
+                BiasDeltas = new double[length];
             }
-
-            public double[] Errors { get; set; }
 
             public NeuronLayer Layer { get; set; }
 
             public double[] Gradients { get; set; }
 
-            public double[,] PrevDeltas { get; set; }
+            public double[,] Deltas { get; set; }
+            public double[] BiasDeltas { get; set; }
 
-            public double[] PrevBiasDeltas { get; set; }
+            public double[,] PrevDeltas { get; private set; }
+            public double[] PrevBiasDeltas { get; private set; }
         }
 
-        public void TrainNetwork(DataSamples samples, DataSamples testSamples, BackPropParams param)
+        public void TrainNetworkByBatch(DataSamples samples, DataSamples testSamples, BackPropParams param)
         {
             var rnd = new Random();
             //
-            var items = new List<int>();
-            for (int i = 0; i < samples.Count; i++) items.Add(i);
+            infos.InitNeurons(rnd);
+            infos.InitNG(Network, rnd);
+            var stop = false;
+            var step = 0;
+            double error = 0.0;
+            var count = samples.Count;
+            while (!stop)
+            {
+                for (int sampleIndex = 0; sampleIndex < count; sampleIndex++)
+                {
+                    var data = samples[sampleIndex];
+                    // forward step
+                    Network.Inputs = data.Inputs;
+                    Network.Calc();
+                    // backward
+                    infos.ProcessGradients(data.Outputs/*, sampleIndex == 0*/);
+                    infos.ProcessDeltas(param.Eta, param.Alpha, sampleIndex == 0);
+                }
+                UpdateWeights(param.Alpha);
+                error = Error(testSamples);
+                step++;
+                if (param.CallBack != null) param.CallBack(step, error, false);
+                stop = (step >= param.MaxSteps) || (error <= param.ErrorStopValue);
+            }
+            if (param.CallBack != null) param.CallBack(step, error, true);
+        }
+
+        public void TrainNetworkBySample(DataSamples samples, DataSamples testSamples, BackPropParams param)
+        {
+            var rnd = new Random();
+            var items = GenerateIndexes(samples);
             //
-            InitNeurons(rnd);
+            infos.InitNeurons(rnd);
+            infos.InitNG(Network, rnd);
             var stop = false;
             var step = 0;
             double error = 0.0;
             while (!stop)
             {
-                for (int i = 0; i < items.Count; i++)
-                {
-                    int j = rnd.Next(items.Count);
-                    while (i == j) j = rnd.Next(items.Count);
-                    int tmp = items[i];
-                    items[i] = items[j];
-                    items[j] = tmp;
-                }
+                ShuffleIndexes(items, rnd);
                 for (int i = 0; i < items.Count; i++) TrainBySample(samples[items[i]], param.Eta, param.Alpha);
                 //
                 error = Error(testSamples);
@@ -74,34 +100,23 @@ namespace SimpleNN.Core
             if (param.CallBack != null) param.CallBack(step, error, true);
         }
 
-        private void InitNeurons(Random rnd)
+        private static List<int> GenerateIndexes(DataSamples samples)
         {
-            foreach (var info in infos)
+            var items = new List<int>();
+            for (int i = 0; i < samples.Count; i++) items.Add(i);
+            return items;
+        }
+
+        private static void ShuffleIndexes(List<int> items, Random rnd)
+        {
+            for (int i = 0; i < items.Count; i++)
             {
-                var layer = info.Layer;
-                foreach (var neuron in layer)
-                {
-                    neuron.Bias = rnd.NextDouble() - 0.5;
-                    for (int i = 0; i < neuron.Weights.Length; i++) neuron.Weights[i] = rnd.NextDouble() - 0.5;
-                }
+                int j = rnd.Next(items.Count);
+                while (i == j) j = rnd.Next(items.Count);
+                int tmp = items[i];
+                items[i] = items[j];
+                items[j] = tmp;
             }
-            if (Network.Count < 2) return;
-
-            int n = Network[0].Inputs.Length, p = 0;
-            for (int index = 0; index < (Network.Count - 1); index++) p += Network[index].Outputs.Length;
-            double beta = 0.7*Math.Pow(p, 1.0/n);
-
-            foreach (var info in infos)
-            {
-                var layer = info.Layer;
-                foreach (var neuron in layer)
-                {
-                    neuron.Bias = (2.0*rnd.NextDouble() - 1.0)*beta;
-                    var mod = Math.Sqrt(neuron.Weights.Sum(x => x*x));
-                    for (int i = 0; i < neuron.Weights.Length; i++) neuron.Weights[i] = beta*neuron.Weights[i]/mod;
-                }
-            }
-
         }
 
         protected void TrainBySample(DataSample data, double eta, double alpha)
@@ -111,7 +126,8 @@ namespace SimpleNN.Core
             Network.Calc();
             // backward
             infos.ProcessGradients(data.Outputs);
-            UpdateWeights(eta, alpha);
+            infos.ProcessDeltas(eta, alpha);
+            UpdateWeights(alpha);
         }
 
         public double Error(DataSamples testSamples)
@@ -134,7 +150,7 @@ namespace SimpleNN.Core
             return sum/testSamples.Count;
         }
 
-        private void UpdateWeights(double eta, double alpha)
+        private void UpdateWeights(double alpha)
         {
             for (int layerIndex = 0; layerIndex < infos.Count; layerIndex++)
             {
@@ -143,53 +159,19 @@ namespace SimpleNN.Core
                 for (int neuronIndex = 0; neuronIndex < layer.Count; neuronIndex++)
                 {
                     var neuron = layer[neuronIndex];
-                    var neuronKoef1 = eta*info.Gradients[neuronIndex]*(1.0-alpha);
                     for (int weightIndex = 0; weightIndex < neuron.Weights.Length; weightIndex++)
                     {
-                        double delta = neuronKoef1*layer.Inputs[weightIndex];
+                        double delta = info.Deltas[neuronIndex, weightIndex];
                         neuron.Weights[weightIndex] += delta;
                         neuron.Weights[weightIndex] += alpha * info.PrevDeltas[neuronIndex, weightIndex];
                         info.PrevDeltas[neuronIndex, weightIndex] = delta;
                     }
-                    var biasDelta = neuronKoef1*1.0;
+                    var biasDelta = info.BiasDeltas[neuronIndex];
                     neuron.Bias += biasDelta;
                     neuron.Bias += alpha*info.PrevBiasDeltas[neuronIndex];
                     info.PrevBiasDeltas[neuronIndex] = biasDelta;
                 }
             }
         }
-
-        //private void ProcessGradients(double[] outputs)
-        //{
-        //    for (int i = 0; i < infos.Count; i++)
-        //    {
-        //        var info = infos[i];
-        //        var layer = info.Layer;
-        //        var values = layer.Outputs;
-        //        if (i == 0)
-        //        {
-        //            // output layer
-        //            for (int j = 0; j < values.Length; j++)
-        //            {
-        //                var value = values[j];
-        //                info.Errors[j] = outputs[j] - value;
-        //                info.Gradients[j] = layer.Derivate(value)*info.Errors[j];
-        //            }
-        //        }
-        //        else
-        //        {
-        //            // hidden layers
-        //            var prev = infos[i - 1];
-        //            for (int j = 0; j < values.Length; j++)
-        //            {
-        //                var value = values[j];
-        //                double sum = 0.0;
-        //                for (int k = 0; k < prev.Layer.Count; k++) sum += prev.Layer[k].Weights[j]*prev.Gradients[k];
-        //                info.Errors[j] = sum;
-        //                info.Gradients[j] = layer.Derivate(value)*info.Errors[j];
-        //            }
-        //        }
-        //    }
-        //}
     }
 }

@@ -30,7 +30,8 @@ namespace SimpleNN
                 Alpha = 0.05,
                 ErrorStopValue = 0.05
             };
-            learning.TrainNetwork(XorSamples, XorSamples, param);
+            //learning.TrainNetworkBySample(XorSamples, XorSamples, param);
+            learning.TrainNetworkByBatch(XorSamples, XorSamples, param);
             Console.WriteLine("press enter...");
             Console.ReadLine();
         }

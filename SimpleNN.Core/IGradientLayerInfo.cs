@@ -2,7 +2,8 @@
 {
     public interface IGradientLayerInfo : ILayerInfo
     {
-        double[] Errors { get; set; }
         double[] Gradients { get; set; }
+        double[,] Deltas { get; set; }
+        double[] BiasDeltas { get; set; }
     }
 }
