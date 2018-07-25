@@ -4,42 +4,6 @@ using System.Linq;
 
 namespace SimpleNN.Core
 {
-    public class BackPropParams
-    {
-        private double _eta = 0.9;
-        private double _alpha = 0.05;
-        private int _maxSteps = int.MaxValue;
-        private double _errorStopValue = 0.1;
-
-        public delegate void TrainCallback(int step, double currentError, bool isFinal);
-
-        public double Eta
-        {
-            get { return _eta; }
-            set { _eta = value; }
-        }
-
-        public double Alpha
-        {
-            get { return _alpha; }
-            set { _alpha = value; }
-        }
-
-        public TrainCallback CallBack { get; set; }
-
-        public int MaxSteps
-        {
-            get { return _maxSteps; }
-            set { _maxSteps = value; }
-        }
-
-        public double ErrorStopValue
-        {
-            get { return _errorStopValue; }
-            set { _errorStopValue = value; }
-        }
-    }
-
     public class BackPropLearning
     {
         private List<LayerInfo> infos;
@@ -54,7 +18,7 @@ namespace SimpleNN.Core
 
         public NeuronNet Network { get; set; }
 
-        class LayerInfo
+        class LayerInfo : IGradientLayerInfo
         {
             private object _gradients;
 
@@ -100,7 +64,7 @@ namespace SimpleNN.Core
                     items[i] = items[j];
                     items[j] = tmp;
                 }
-                for (int i = 0; i < items.Count; i++) TrainByLearningSample(samples[items[i]], param.Eta, param.Alpha);
+                for (int i = 0; i < items.Count; i++) TrainBySample(samples[items[i]], param.Eta, param.Alpha);
                 //
                 error = Error(testSamples);
                 step++;
@@ -140,13 +104,13 @@ namespace SimpleNN.Core
 
         }
 
-        protected void TrainByLearningSample(DataSample data, double eta, double alpha)
+        protected void TrainBySample(DataSample data, double eta, double alpha)
         {
             // forward step
             Network.Inputs = data.Inputs;
             Network.Calc();
             // backward
-            ProcessGradients(data.Outputs);
+            infos.ProcessGradients(data.Outputs);
             UpdateWeights(eta, alpha);
         }
 
@@ -195,37 +159,37 @@ namespace SimpleNN.Core
             }
         }
 
-        private void ProcessGradients(double[] outputs)
-        {
-            for (int i = 0; i < infos.Count; i++)
-            {
-                var info = infos[i];
-                var layer = info.Layer;
-                var values = layer.Outputs;
-                if (i == 0)
-                {
-                    // output layer
-                    for (int j = 0; j < values.Length; j++)
-                    {
-                        var value = values[j];
-                        info.Errors[j] = outputs[j] - value;
-                        info.Gradients[j] = layer.Derivate(value)*info.Errors[j];
-                    }
-                }
-                else
-                {
-                    // hidden layers
-                    var prev = infos[i - 1];
-                    for (int j = 0; j < values.Length; j++)
-                    {
-                        var value = values[j];
-                        double sum = 0.0;
-                        for (int k = 0; k < prev.Layer.Count; k++) sum += prev.Layer[k].Weights[j]*prev.Gradients[k];
-                        info.Errors[j] = sum;
-                        info.Gradients[j] = layer.Derivate(value)*info.Errors[j];
-                    }
-                }
-            }
-        }
+        //private void ProcessGradients(double[] outputs)
+        //{
+        //    for (int i = 0; i < infos.Count; i++)
+        //    {
+        //        var info = infos[i];
+        //        var layer = info.Layer;
+        //        var values = layer.Outputs;
+        //        if (i == 0)
+        //        {
+        //            // output layer
+        //            for (int j = 0; j < values.Length; j++)
+        //            {
+        //                var value = values[j];
+        //                info.Errors[j] = outputs[j] - value;
+        //                info.Gradients[j] = layer.Derivate(value)*info.Errors[j];
+        //            }
+        //        }
+        //        else
+        //        {
+        //            // hidden layers
+        //            var prev = infos[i - 1];
+        //            for (int j = 0; j < values.Length; j++)
+        //            {
+        //                var value = values[j];
+        //                double sum = 0.0;
+        //                for (int k = 0; k < prev.Layer.Count; k++) sum += prev.Layer[k].Weights[j]*prev.Gradients[k];
+        //                info.Errors[j] = sum;
+        //                info.Gradients[j] = layer.Derivate(value)*info.Errors[j];
+        //            }
+        //        }
+        //    }
+        //}
     }
 }

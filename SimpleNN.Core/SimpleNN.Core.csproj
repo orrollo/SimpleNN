@@ -41,12 +41,17 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="BackPropLearning.cs" />
+    <Compile Include="BackPropParams.cs" />
     <Compile Include="DataSample.cs" />
     <Compile Include="DataSamples.cs" />
+    <Compile Include="IGradientLayerInfo.cs" />
+    <Compile Include="ILayerInfo.cs" />
+    <Compile Include="LearningHelper.cs" />
     <Compile Include="Neuron.cs" />
     <Compile Include="NeuronLayer.cs" />
     <Compile Include="NeuronNet.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="RPropLearning.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
