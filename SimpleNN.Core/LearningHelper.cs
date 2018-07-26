@@ -112,5 +112,28 @@ namespace SimpleNN.Core
                 }
             }
         }
+
+        public static void UpdateWeights(this IEnumerable<IGradientLayerInfo> layerInfos, double alpha)
+        {
+            foreach (var info in layerInfos)
+            {
+                var layer = info.Layer;
+                for (int neuronIndex = 0; neuronIndex < layer.Count; neuronIndex++)
+                {
+                    var neuron = layer[neuronIndex];
+                    for (int weightIndex = 0; weightIndex < neuron.Weights.Length; weightIndex++)
+                    {
+                        double delta = info.Deltas[neuronIndex, weightIndex];
+                        neuron.Weights[weightIndex] += delta;
+                        neuron.Weights[weightIndex] += alpha * info.PrevDeltas[neuronIndex, weightIndex];
+                        info.PrevDeltas[neuronIndex, weightIndex] = delta;
+                    }
+                    var biasDelta = info.BiasDeltas[neuronIndex];
+                    neuron.Bias += biasDelta;
+                    neuron.Bias += alpha*info.PrevBiasDeltas[neuronIndex];
+                    info.PrevBiasDeltas[neuronIndex] = biasDelta;
+                }
+            }
+        }
     }
 }

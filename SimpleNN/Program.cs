@@ -22,7 +22,6 @@ namespace SimpleNN
         {
             _network = new NeuronNet(2, 3, 1);
             var learning = new BackPropLearning(_network);
-
             var param = new BackPropParams()
             {
                 CallBack = cb,
@@ -30,8 +29,13 @@ namespace SimpleNN
                 Alpha = 0.05,
                 ErrorStopValue = 0.05
             };
-            //learning.TrainNetworkBySample(XorSamples, XorSamples, param);
-            learning.TrainNetworkByBatch(XorSamples, XorSamples, param);
+            learning.TrainNetworkBySample(XorSamples, XorSamples, param);
+            //learning.TrainNetworkByBatch(XorSamples, XorSamples, param);
+
+            //var param2 = new RPropParams();
+            //var learning2 = new RPropLearning(_network);
+            //learning2.Train(XorSamples, XorSamples, param2);
+
             Console.WriteLine("press enter...");
             Console.ReadLine();
         }

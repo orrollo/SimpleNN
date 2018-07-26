@@ -35,5 +35,25 @@ namespace SimpleNN.Core
         {
             foreach (var layer in this) layer.Calc();
         }
+
+        public double Error(DataSamples testSamples)
+        {
+            double sum = 0.0;
+            for (int index = 0; index < testSamples.Count; index++)
+            {
+                double[] input = testSamples[index].Inputs, output = testSamples[index].Outputs;
+                Inputs = input;
+                Calc();
+                var error = 0.0;
+                for (int itemIntex = 0; itemIntex < output.Length; itemIntex++)
+                {
+                    var diff = output[itemIntex] - Outputs[itemIntex];
+                    error += diff*diff;
+                }
+                error = Math.Sqrt(error)/output.Length;
+                sum += error;
+            }
+            return sum/testSamples.Count;
+        }
     }
 }
